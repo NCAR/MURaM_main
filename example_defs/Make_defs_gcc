@@ -1,0 +1,92 @@
+MURaM_HOME_DIR = /home/przybylski/MURaM_GIT
+FFTW3_HOME = /usr
+
+# output name
+PROGRAM = mhd3d.x
+
+# Optimization option
+OPT = -O3 -ffast-math -ftree-vectorize 
+
+# Debugging option (for development) use -pg -g3
+DBG = -Wshadow -Wall 
+
+# FILEPATH option (default: ./) - This is useful
+# to write files to special directories on some machines
+FILEPATH = ./
+
+# Machine architecture
+ARCH = rs6000
+########################################################
+
+######## The shell command #############################
+SHELL=/bin/sh
+
+######## The shell command #############################
+FFTWHOME   = $(FFTW3_HOME)
+FFTWLIB    = -lfftw3_mpi -lfftw3
+FFTWLIBDIR = -L$(FFTWHOME)/lib
+FFTWINCDIR = -I$(FFTWHOME)/include
+########################################################
+CFDHOME= $(MURaM_HOME_DIR)/lib/CFD
+CFDLIBDIR = -L$(CFDHOME)/lib
+CFDINCDIR = -I$(CFDHOME)/include
+CFDLIB = -lcfd
+
+########################################################
+MASSLIB = 
+
+######### MPI options ##################################
+MPIHOME=
+MPILIBDIR=
+MPIINCDIR=
+MPILIB=
+
+######### ROMIO options #################################
+MPIOLIBDIR=
+MPIOINCDIR=
+MPIOLIB=
+
+######### General options ##############################
+#
+# All the relevant definitions are now in include/alconfig.h
+# 
+          
+DEFS = $(OPT) $(DBG) $(PRE)
+
+INCLUDES = -I../ -I$(MURaM_HOME_DIR)/include -I$(MURaM_HOME_DIR)/src/rt $(MPIINCDIR) $(MPIOINCDIR) \
+     $(CFDINCDIR) $(FFTWINCDIR)
+
+LIBS = $(CFDLIBDIR) $(CFDLIB) \
+       $(MPILIBDIR) $(MPIOLIB) $(MPILIB) \
+       $(FFTWLIBDIR) $(FFTWLIB) $(MASSLIB) -lm
+
+######### C options #####################################
+CC     = mpicc
+LD     = mpic++
+CCC    = mpic++
+
+CFLAGS  = $(DEFS) $(INCLUDES)
+CCFLAGS = $(CFLAGS)
+
+LDFLAGS      = $(DEFS) 
+LDFLAGS      += $(LIBS)
+
+######## Mixed  command #################################
+RM          = rm
+AR          = ar
+RANLIB    = ranlib
+
+######### Suffix rules ########################################
+.SUFFIXES :    .o .cc .c .C .cpp .c++
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+.C.o:
+	$(CCC) $(CCFLAGS) -c $<
+.cpp.o:
+	$(CCC) $(CCFLAGS) -c $<
+.c++.o:
+	$(CCC) $(CCFLAGS) -c $<
+.cc.o:
+	$(CCC) $(CCFLAGS) -c $<
+

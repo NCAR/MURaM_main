@@ -1,0 +1,141 @@
+MURaM_HOME_DIR = 
+FFTW3_HOME = 
+HEFFTE_HOME =
+CUDA_HOME = /glade/u/apps/gust/22.12/spack/opt/spack/cuda/11.7.1/gcc/7.5.0
+
+# FFT = FFTW or HEFFTE or HEFFTE_CPU
+FFT = FFTW
+
+# output name
+PROGRAM = mhd3d.x
+
+# Optimization option
+OPT = -O3 -acc -gpu=cc80,nofma -Minfo=accel -Mnofma -std=c++11
+#OPT = -O3 -Mnofma -std=c++11
+
+# Debugging option (for development) use -pg -g3
+DBG =    # -DDEBUG -DPGICOMPARE 
+
+# FILEPATH option (default: ./) - This is useful
+# to write files to special directories on some machines
+FILEPATH = ./
+
+# Machine architecture
+ARCH = rs6000
+########################################################
+
+######## Custom Flags for MURaM ########################
+CUSTOM_FLAGS = -DMURAM_$(FFT)
+
+######## The shell command #############################
+SHELL=/bin/sh
+
+######## FFT Options ###################################
+ifdef FFTW3_HOME
+
+FFTWHOME   = $(FFTW3_HOME)
+FFTWLIBDIR = -L$(FFTWHOME)/lib
+FFTWINCDIR = -I$(FFTWHOME)/include
+
+ifeq ($(FFT), FFTW)
+FFTWLIB = -lfftw3_mpi -lfftw3_threads -lfftw3
+endif
+ifeq ($(FFT), HEFFTE_CPU)
+FFTWLIB = -lfftw3 -lfftw3f
+endif
+ifeq ($(FFT), HEFFTE)
+FFTWLIB = -lfftw3 -lfftw3f
+endif
+
+else
+FFTWHOME =
+FFTWLIB =
+FFTWLIBDIR =
+FFTWINCDIR =
+endif
+######## CUDA Options ##################################
+ifdef CUDA_HOME
+CUDAHOME = $(CUDA_HOME)
+CUDALIB = -lcufft -lcudart
+CUDALIBDIR = -L$(CUDAHOME)/lib64
+CUDAINCDIR = -I$(CUDAHOME)/include
+else
+CUDAHOME =
+CUDALIB =
+CUDALIBDIR =
+CUDAINCDIR =
+endif
+######## HEFFTE Options ################################
+ifdef HEFFTE_HOME
+
+HEFFTEHOME   = $(HEFFTE_HOME)
+HEFFTELIBDIR = -L$(HEFFTEHOME)/lib
+HEFFTEINCDIR = -I$(HEFFTEHOME)/include
+HEFFTELIB    = -lheffte
+
+else
+HEFFTEHOME =
+HEFFTELIB =
+HEFFTELIBDIR =
+HEFFTEINCDIR =
+endif
+########################################################
+MASSLIB = 
+
+######### MPI options ##################################
+MPIHOME=
+MPILIBDIR=
+MPIINCDIR=
+MPILIB=
+
+######### ROMIO options #################################
+MPIOLIBDIR=
+MPIOINCDIR=
+MPIOLIB=
+
+######### General options ##############################
+#
+# All the relevant definitions are now in include/alconfig.h
+# 
+          
+DEFS = $(OPT) $(CUSTOM_FLAGS) $(DBG) $(PRE)
+
+INCLUDES = -I../ -I$(MURaM_HOME_DIR)/include -I$(MURaM_HOME_DIR)/src/rt $(MPIINCDIR) $(MPIOINCDIR) \
+     $(HEFFTEINCDIR) $(FFTWINCDIR) $(CUDAINCDIR)
+
+LIBS = $(MPILIBDIR) $(MPIOLIB) $(MPILIB) \
+       $(HEFFTELIBDIR) $(HEFFTELIB) \
+       $(FFTWLIBDIR) $(FFTWLIB) \
+       $(CUDALIBDIR) $(CUDALIB) \
+       $(MASSLIB) -lm
+
+######### C options #####################################
+CC     = mpicc
+LD     = mpic++
+CCC    = mpic++
+
+CFLAGS  = $(DEFS) $(INCLUDES)
+CCFLAGS = $(CFLAGS)
+
+LDFLAGS      = $(DEFS) 
+LDFLAGS      += $(LIBS)
+
+######## Mixed  command #################################
+RM          = rm
+AR          = ar
+RANLIB    = ranlib
+
+######### Suffix rules ########################################
+.SUFFIXES :    .o .cc .c .C .cpp .c++
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+.C.o:
+	$(CCC) $(CCFLAGS) -c $<
+.cpp.o:
+	$(CCC) $(CCFLAGS) -c $<
+.c++.o:
+	$(CCC) $(CCFLAGS) -c $<
+.cc.o:
+	$(CCC) $(CCFLAGS) -c $<
+

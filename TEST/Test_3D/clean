@@ -1,0 +1,5 @@
+\rm 3D/* 2D/* *.log
+cp ini/res* 3D/
+cp ini/Header* 3D
+cp ini/backup.dat .
+

@@ -1,0 +1,143 @@
+# output name
+MURaM_HOME_DIR=/u/damp/MURaM_GPU/MURaM_main/
+
+# FFT = FFTW or HEFFTE or HEFFTE_CPU
+FFT_MODE=FFTW    #HEFFTE_CPU
+CUDA_HOME=/mpcdf/soft/SLE_15/packages/x86_64/nvhpcsdk/21.11/Linux_x86_64/21.11/cuda/11.5
+CUDATOOLS=/mpcdf/soft/SLE_15/packages/x86_64/nvhpcsdk/21.11/Linux_x86_64/21.11/math_libs/11.5
+
+FFTW3_HOME=/u/damp/lib/fftw3310/nvhpc_21.11_ompi_4.1.2_UCX_gpfs_O3
+HEFFTE_HOME=/u/damp/lib/heffte_fftw3310/nvhpc_21.11_ompi_4.1.2_UCX_gpfs_O3_nogpud
+
+PROGRAM = mhd3d.x
+
+# Optimization option
+OPT = -O0 -acc -gpu=cc80,nofma,lineinfo -Minfo=accel -Mnofma -std=c++11
+
+# Debugging option (for development) use -pg -g3
+DBG = -Wall
+
+# FILEPATH option (default: ./) - This is useful
+# to write files to special directories on some machines
+FILEPATH = ./
+
+# Machine architecture
+ARCH = rs6000
+########################################################
+
+######## Custom Flags for MURaM ########################
+CUSTOM_FLAGS = -DMURAM_$(FFT_MODE)
+
+######## The shell command #############################
+SHELL=/bin/sh
+
+######## FFT Options ###################################
+ifdef FFTW3_HOME
+
+FFTWHOME   = $(FFTW3_HOME)
+FFTWLIBDIR = -L$(FFTWHOME)/lib
+FFTWINCDIR = -I$(FFTWHOME)/include
+
+ifeq ($(FFT_MODE), FFTW)
+FFTWLIB = -lfftw3_mpi -lfftw3_threads -lfftw3
+endif
+ifeq ($(FFT_MODE), HEFFTE_CPU)
+FFTWLIB = -lfftw3 -lfftw3f
+endif
+ifeq ($(FFT_MODE), HEFFTE)
+FFTWLIB = -lfftw3 -lfftw3f
+endif
+
+else
+FFTWHOME =
+FFTWLIB =
+FFTWLIBDIR =
+FFTWINCDIR =
+endif
+########################################################
+ifdef CUDA_HOME
+CUDAHOME = $(CUDA_HOME)
+CUDAFFT = -lcufft
+CUDAFFTLIB = -L$(CUDATOOLS)/lib64
+CUDAFFTINC = -I$(CUDATOOLS)/include
+CUDALIB = -lcudart
+CUDALIBDIR = -L$(CUDAHOME)/lib64
+CUDAINCDIR = -I$(CUDAHOME)/include
+else
+CUDAHOME =
+CUDALIB =
+CUDALIBDIR =
+CUDAINCDIR =
+endif
+######## HEFFTE Options ################################
+ifdef HEFFTE_HOME
+
+HEFFTEHOME   = $(HEFFTE_HOME)
+HEFFTELIBDIR = -L$(HEFFTEHOME)/lib
+HEFFTEINCDIR = -I$(HEFFTEHOME)/include
+HEFFTELIB    = -lheffte
+
+else
+HEFFTEHOME =
+HEFFTELIB =
+HEFFTELIBDIR =
+HEFFTEINCDIR =
+endif
+########################################################
+MASSLIB = 
+
+######### MPI options ##################################
+MPIHOME=
+MPILIBDIR=
+MPIINCDIR=
+MPILIB=
+
+######### ROMIO options #################################
+MPIOLIBDIR=
+MPIOINCDIR=
+MPIOLIB=
+
+######### General options ##############################
+          
+DEFS = $(OPT) $(CUSTOM_FLAGS) $(DBG) $(PRE)
+
+INCLUDES = -I../ -I$(MURaM_HOME_DIR)/include -I$(MURaM_HOME_DIR)/src/rt $(MPIINCDIR) $(MPIOINCDIR) \
+     $(HEFFTEINCDIR) $(FFTWINCDIR) $(CUDAINCDIR) $(CUDAFFTINC)
+
+LIBS = $(MPILIBDIR) $(MPIOLIB) $(MPILIB) \
+       $(HEFFTELIBDIR) $(HEFFTELIB) \
+       $(FFTWLIBDIR) $(FFTWLIB) \
+       $(CUDALIBDIR) $(CUDALIB) \
+       $(CUDAFFTLIB) $(CUDAFFT) \
+       $(MASSLIB) -lm
+
+######### C options #####################################
+CC     = mpicc
+LD     = mpic++
+CCC    = mpic++
+
+CFLAGS  = $(DEFS) $(INCLUDES)
+CCFLAGS = $(CFLAGS)
+
+LDFLAGS      = $(DEFS) 
+LDFLAGS      += $(LIBS)
+
+######## Mixed  command #################################
+RM          = rm
+AR          = ar
+RANLIB    = ranlib
+
+######### Suffix rules ########################################
+.SUFFIXES :    .o .cc .c .C .cpp .c++
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+.C.o:
+	$(CCC) $(CCFLAGS) -c $<
+.cpp.o:
+	$(CCC) $(CCFLAGS) -c $<
+.c++.o:
+	$(CCC) $(CCFLAGS) -c $<
+.cc.o:
+	$(CCC) $(CCFLAGS) -c $<
+

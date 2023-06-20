@@ -1,0 +1,129 @@
+# Grid parameters
+NDIM      = 3     |
+gxmin     = 0 0 0 | Left corner
+gxmax     = 3.0e8 12.0e8 12.0e8 | Right corner
+gsize     = 100 200 200 | Global size
+pardim    = 1 1 1 | Parallel dimensions
+periods   = 0 1 1 | Periodic boundaries
+procs     = 1 1 1 | Core layout
+# Run parameters
+#
+anlfreq   = 1   	| Analysis frequency
+backfreq  = 100   	| Backup frequency
+resfreq   = 100         | Result dump frequency
+slicefreq = 999999 	| Slice dump frequency
+outcad    = 0		| Save with a constant output cadence in seconds, 0 = off. 
+
+Tmax      = 7200.	| Maximum run time
+maxiter   = 300000    	| Max number of iterations
+CFL       = 1.9		| CFL number
+CFL_tvd   = 1.0
+maxWtime  = 10000.0	| pos. value -> write last output and continue
+			| neg. value -> write last output and terminate
+verbose   = 3
+comment   = "new eos test run"
+
+#EOS Table - ln(T),ln(p),s,ln(ne),ln(amb),ln(p),ln(eps)
+eos_name = Uppsala_mergedeos_PI_A.dat
+
+#Kappa Table
+kap_name = kappa_grey.dat
+
+# Optional IO parameters
+path_3D = 3D/ 
+path_2D = 2D/ 
+
+# Other Outputs, save 3D cubes of
+#             Tem Pre  ne rhoi amb Qrt Tau Jtot Stot QCor QH QMg QCa QCro
+eos_output =   0   0   0   0    0   0   0   0    0    0   0   0   0   0  
+
+# A switch for diagnostic saves, saves various things to TVAR's (below)
+diagnostics = 1
+
+# Diagnostics output:
+#      TVAR    1  2  3  4  5  6  7  8  Qres  Qvis Qamb
+diag_output =  0  0  0  0  0  0  0  0   0     0    0
+
+# Save differential emmision measures (See Rempel 2017)
+DEM = 0
+
+# Save horizontal averages of diagnostics
+HAVG = 0
+
+# Save horizontal averages of RT quantities
+RT_HAVG = 0
+
+
+# Physics parameters
+param_gravity     = 2.74e4	| gravity
+param_va_max      = 5e7       	| Max Alfven velocity
+param_va_adjust   = 0		| (<=0) disabled, (>0) va_max = param_va_adjust*mac(2*CS, 3*v) + dynamic limiting of vmax and eps_max
+param_spitzer     = 0           | (0) disabled (>0) Spitzer coefficient (1e-6)
+param_ambipolar   = 0           | (0) disbaled (>0) Speedup realtive to diffusive dt_amb
+param_ambfac_max  = 1e12
+param_velamb_max  = 1e7
+
+bnd_top   = 0		| (0) closed, (1) outflows
+bnd_pot   = 0		| (0) vertical field, (1) potential field (2) recompute pot. field only for full time step
+bnd_bcrit = 2.5e30	| bottom bnd v=0 for B>Bcrit (Gauss)
+bnd_eps_top   = 0.0         | hot plate at top  
+
+# TVD limiter general seetings
+tvd_h      = 2.0  2.0  2.0  2.0	| Flux Parameter
+
+# TVD boundary diffusivities
+# Allowed range for tvd_visc_bnd and tvd_eta_bnd is [0,2]
+# Values [0,1] coefficients similar to tvd_coeff
+# Values [1,2] coeff=1 + further enhancement through reduction of
+# reconstruction slope (slope=0 for value of 2)
+tvd_h_bnd    = 0.025  0.025	| width of boundary layers (bottom, top)
+tvd_visc_bnd = 2.0    2.0   	| visc coeff in boundary layers
+tvd_eta_bnd  = 2.0    2.0   	| eta coeff in boundary layers
+
+# divB cleaning, 0: off, 1: on
+divB_switch =  1		| divB cleaning off (0) on (1) 
+
+# Tcheck
+tchk_eps_min = 1.0e12	| min eps value
+tchk_rho_min = 1.0e-17	| min rho value
+tchk_eps_max = 4.0e15	| max eps value (only where emag>eint)
+tchk_vmax    = 100.0e5	| max allowed velocity
+
+# Damp box mode
+dmp_switch  = 1 	| damping off (0) on (1)
+dmp_tau_ref = 1.0e3	| damping time scale for v=vel_ref
+dmp_vel_ref = 1.0e3	|
+dmp_tau_min = 1.0e2	| shortest allowed damping time scale
+
+# RT
+rt_type = 0     		| RT module, 0 = standard LTE, 1 = scattering
+rt_update = 1	    	| update frequency (iterations) for RT
+rt_tstep  = 0.1	    	| (0) dt adjusted (>0) Qtot limited if dt_rad<rt_tstep
+rt_epsilon = 0.0    	| (0) Binned photon destruction probability,
+                        | (0-1) constant photon destruction probability.
+
+# Chromospheric extension, tabulated NLTE (as in C&L2012)
+ext_chr     = 0         | Chromospheric back heating from the corona.
+ext_cor     = 1         | Optically thing coronal losses. (1) Chianti, (2) C&L2012
+
+# Slice control
+sl_collect = 0		| (0) separate files (1) collect into one file 
+sl_I_out   = 1		| separate output of I_out
+sl_tau     = 3		| number of tau slices
+sl_xz      = 0		| number of xz slices
+sl_xy      = 0		| number of xy slices
+sl_yz      = 0		| number of yz slices
+
+# Slice levels (maximum 10)
+tau_lev    = 1.0 0.1 0.01
+xz_lev     = 0
+xy_lev     = 0 
+yz_lev     = 0 
+
+# Slice variables (tau: position of tau level)
+#          rho vx  vy  vz  eps bx  by  bz  |v| |B| T  P  ic tau 
+tau_var =  1   1   1   1   1   1   1   1    0   0  0  0   0  0    
+xz_var  =  1   1   1   1   1   1   1   1    0   0  0  0   0 
+xy_var  =  1   1   1   1   1   1   1   1    0   0  0  0 
+yz_var  =  1   1   1   1   1   1   1   1    0   0  0  0
+

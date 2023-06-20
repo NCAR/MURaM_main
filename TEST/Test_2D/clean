@@ -1,0 +1,3 @@
+rm 3D/*  2D/* *.log 
+cp ini/*.000000 3D
+cp ini/backup.dat .

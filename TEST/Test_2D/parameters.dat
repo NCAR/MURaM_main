@@ -1,0 +1,148 @@
+# Grid parameters
+NDIM    = 2     |
+gxmin   = 0 0 0 | Left corner
+gxmax   = 8.192e8 8.192e8 8.192e8 | Right corner
+gsize   = 256 256 200 | Global size
+pardim  = 1 1 1 | Parallel dimensions
+periods = 0 1 1 | Periodic boundaries
+procs   = 2 1 1 | Core layout
+
+# Run parameters
+#
+anlfreq   = 10   	| Analysis frequency
+backfreq  = 10   	| Backup frequency
+slicefreq = 10 	        | Slice dump frequency
+outcad    = 0		| Save with a constant output cadence in seconds, 0 = off. 
+resfreq   = 10         | Result dump frequency
+Tmax      = 2000.	| Maximum run time
+maxiter   = 21    	| Max number of iterations
+CFL       = 1.5		| CFL number
+CFL_tvd   = 1.0
+maxWtime  = 10000.0	| pos. value -> write last output and continue
+			| neg. value -> write last output and terminate
+verbose   = 4 
+
+#BIFROST TABLES EOS
+eos_name = ../../RUNDIR/Uppsala_mergedeos_PI_A.dat
+kap_name = ../../RUNDIR/kappa_grey.dat
+
+# Optional IO parameters
+path_3D = 3D/ 
+path_2D = 2D/ 
+
+# Other Outputs, save 3D cubes of
+#             Tem Pre  ne rhoi amb Qrt Tau Jtot Stot Qcor QH QMg QCa QCro
+eos_output =   1   1   1   1    1   1   1   1    1    1   1   1   1    0  
+
+# A switch for diagnostic saves, saves various things to TVAR's (below)
+diagnostics = 1 
+
+# Diagnostics output:
+#      TVAR    1  2  3  4  5  6  7  8  Qres  Qvis Qamb
+diag_output =  0  0  0  0  0  0  0  0   1     1    1
+
+# Save DEM/HAVG/RT_HAVG outputs
+DEM = 0
+HAVG = 1
+RT_HAVG = 0 
+
+# Physics parameters
+param_gravity   = 2.74e4	| gravity
+param_va_max    = 1e7		| valf_max
+param_va_adjust = 1 
+param_max_fill  = 10.
+param_spitzer   = 1e-6 
+param_ambipolar = 1e10 
+param_ambfac_max= 1e12
+param_velamb_max= 1e7
+
+# Boundary Parameters
+bnd_top     = 1		| (0) closed, (1) half open (outflows/no inflows)
+bnd_pot     = 2		| (0) vertical field, (1) potential field
+			| (2) recompute pot. field only for full time step
+bnd_bcrit   = 2.5e30	| bottom bnd v=0 for B>Bcrit (Gauss)
+bnd_eps_top = 2e14	| hot plate at top
+
+# TVD limiter general seetings
+tvd_h      = 2.0   2.0	 2.0   2.0   | h-parameter (rho,V,eps,B)
+tvd_cs     = 0.2   0.2   0.2   0.2   | sound speed contribution to diffusivity 
+tvd_rholev = 1.0e-11	| switch to tvd_lim_lb for rho<rholev
+tvd_rholog = 1 		| reconstruct ln(rho) (less mass diffusion)
+tvd_qrho   = 10         | max density variation between gridpoints
+tvd_Bpar   = 0.2	| reduction of field aligned mag. diffusivity
+
+tvd_vhyp       = 1.0
+tvd_Qdiff_bnd  = 0.0;
+tvd_pm_v       = 1.0;
+tvd_pm_B       = 4.0;
+tvd_vmax_lim   = 0.75;
+tvd_CME_thresh = 0.5;
+
+# TVD boundary diffusivities
+# Allowed range for tvd_visc_bnd and tvd_eta_bnd is [0,2]
+# Values [0,1] coefficients similar to tvd_coeff
+# Values [1,2] coeff=1 + further enhancement through reduction of
+# reconstruction slope (slope=0 for value of 2)
+tvd_h_bnd    = 0.01  0.01	| width of boundary layers (bottom, top)
+tvd_visc_bnd = 1.0    1.0   	| visc coeff in boundary layers
+tvd_eta_bnd  = 1.0    1.0   	| eta coeff in boundary layers
+
+# TVD coefficients for mhd variables (rho,V,eps,B). Allowed value range [0,1]
+tvd_coeff    = 1.0 1.0 1.0 1.0 
+
+# divB cleaning
+divB_switch =  1	| divB cleaning off (0) on (1) 
+divB_itmax  =  5	| max interations
+divB_err    =  0.2	| rel reduction of initial error
+
+# Tcheck
+tchk_eps_min = 1.75e12	| min eps value
+tchk_rho_min = 1.0e-18	| min rho value
+tchk_eps_max = 2e17	| max eps value (only where emag>eint)
+tchk_vmax    = 5e8	| max allowed velocity
+
+# Damp box mode
+dmp_switch  = 1 	| damping off (0) on (1)
+dmp_tau_ref = 1.0e3	| damping time scale for v=vel_ref
+dmp_vel_ref = 1.0e3	|
+dmp_tau_min = 1.0e2	| shortest allowed damping time scale
+
+# RT
+rt_type    = 0		| RT module, 0 = standard LTE, 1 = scattering
+rt_update  = 1		| update frequency (iterations) for RT
+rt_cfl     = 0.5	| safety factor for RT timestep
+rt_tstep   = 1		| (0) dt adjusted (>0) Qtot limited if dt_rad<rt_tstep*dt_mhd
+rt_epsilon = 0.0	| Value of epsilon in the case of constant photon destruction probability
+                        | Set to 0 for variable photon destruction probability.
+rt_tau_min = 1.0e-8     | Minimum Tau
+rt_tr_tem  = 2e4        
+rt_tr_pre  = 1e2
+rt_iout    = 0
+
+# Damiens Switch for chromospheric extension, eventually we will have three extension options here.
+ext_hlines  = 1         | heating and cooling from hydrogen lines.
+ext_mglines = 1         | heating and cooling from magnesium lines.
+ext_calines = 1         | heating and cooling from calcium lines.
+ext_chr     = 0         | Chromospheric back heating from the corona.
+ext_cor     = 1         | Optically thing coronal losses.
+
+# Slice control
+sl_collect = 0		| (0) separate files (1) collect into one file 
+sl_I_out   = 1		| separate output of I_out
+sl_tau     = 3		| number of tau slices
+sl_xz      = 0		| number of xz slices
+sl_xy      = 0		| number of xy slices
+sl_yz      = 0		| number of yz slices
+
+# Slice levels (maximum 10)
+tau_lev    = 1.0 0.1 0.01
+xz_lev     = 0
+xy_lev     = 0 
+yz_lev     = 0 
+
+# Slice variables (tau: position of tau level)
+#          rho vx  vy  vz  eps bx  by  bz  |v| |B| T  P  ic tau 
+tau_var =  1   1   1   1   1   1   1   1    0   0  0  0   0  0    
+xz_var  =  1   1   1   1   1   1   1   1    0   0  0  0   0 
+xy_var  =  1   1   1   1   1   1   1   1    0   0  0  0 
+yz_var  =  1   1   1   1   1   1   1   1    0   0  0  0
