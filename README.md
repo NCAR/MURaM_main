@@ -1,6 +1,24 @@
 #######################
+How to reference the code:
+Please reference the following papers when using this code:
+
+Original code:
+Vögler, A., Shelyag, S., Schüssler, M., Cattaneo, F., Emonet, T., Linde, T., "Simulations of magneto-convection in the solar photosphere.  Equations, methods, and results of the MURaM code", Astronomy and Astrophysics, v.429, p.335-351 (2005)
+
+Updated numerical diffusivities:
+Rempel, M., "Numerical Simulations of Quiet Sun Magnetism: On the Contribution from a Small-scale Dynamo", The Astrophysical Journal, Volume 789, Issue 2, article id. 132, 22 pp. (2014).
+
+Extended version with coronal physics (the version in this repository is based on this):
+Rempel, M., "Extension of the MURaM Radiative MHD Code for Coronal Simulations", The Astrophysical Journal, Volume 834, Issue 1, article id. 10, 23 pp. (2017).
+
+Initial GPU Refactoring:
+Wright, E., Przybylski, D., Rempel, M., Miller, C., Suresh, S., Su, S., Loft, R., Chandrasekaran, S., "Refactoring the MPS/University of Chicago Radiative MHD(MURaM) Model for GPU/CPU Performance Portability Using OpenACC Directives", eprint arXiv:2107.08145
+
+
+#######################
 Libraries:
-The code requires a parallel version of fftw3! Please install fftw3 (www.fftw.org/) with --enable-mpi
+The code requires a parallel version of fftw3 and heffte! 
+See the install scripts in lib/fftw and lib/heffte for further details, 
 
 #######################
 Compilation:
@@ -8,6 +26,7 @@ Customize the file "Make_defs". In general the following varibales need to be se
 
 MURaM_HOME_DIR = MURaM home directory
 FFTW3_HOME = location of fftw3 library
+HEFFTE_HOME = location of heffte library
 
 OPT = optimization flages
 
