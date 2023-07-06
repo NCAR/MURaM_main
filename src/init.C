@@ -102,11 +102,11 @@ int Initialize(RunData& Run,GridData& Grid,
     getvar(&Physics.params[i_param_ambfac_max],"param_ambfac_max",rtype,datafile);
     getvar(&Physics.params[i_param_ambvel_max],"param_ambvel_max",rtype,datafile);
 
-    if (i_param_ambipolar > 0)
+    if (Physics.params[i_param_ambipolar] > 0)
     {
       cout << "The Current implementation of ambipolar diffusion is out of date and likely incorrect" << endl;
       cout << "The code must be updated to the version presented in Rempel + Przybylski 2021" << endl;
-      cout << "Set i_param_ambipolar = 0" << endl;
+      cout << "Set param_ambipolar = 0" << endl;
       MPI_Abort(MPI_COMM_WORLD,1);
     }
     
