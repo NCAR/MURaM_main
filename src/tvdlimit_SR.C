@@ -230,7 +230,7 @@ void TVDlimit(const RunData&  Run, GridData& Grid,
     hfb[:vsize], hft[:vsize], qft[:vsize],                          \
     Grid.tvar8[:bufsize], Grid.Qres[:bufsize],                      \
     Grid.Qvis[:bufsize], Grid.tvar6[:bufsize],                      \
-    Grid.tvar7[:bufsize],tvd_cs[:4],tvd_h[:4]) //tvd_coeff[:4])  
+    Grid.tvar7[:bufsize],tvd_cs[:4],tvd_h[:4],loop_order[:3][:3]) //tvd_coeff[:4])  
 {
   /* y direction first to be consistent with vertical boundary */
 #pragma acc loop seq independent

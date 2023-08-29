@@ -107,6 +107,9 @@ void AnalyzeSolution_VP(const RunData& Run,const GridData& Grid,
   glo   = new double [bufsz];
   iobuf = new float[bufsz];
 
+#pragma acc enter data copyin(loc[:bufsz]) 
+
+#pragma acc parallel loop   
   for(j=0;j<bufsz;j++){ 
     loc[j] = 0.0;
   }
@@ -114,15 +117,14 @@ void AnalyzeSolution_VP(const RunData& Run,const GridData& Grid,
   ioff = Grid.lsize[0];
 
 //added as part of IO porting - SS
-  int rt_ext_i_ext_cor_temp = Physics.rt_ext[i_ext_cor];
-  int rt_i_rt_tr_tem_temp = Physics.rt[i_rt_tr_tem];
-  int rt_i_rt_tr_pre_temp = Physics.rt[i_rt_tr_pre];
-  int params_i_param_spitzer_temp = Physics.params[i_param_spitzer];
-  int params_i_param_ambipolar_temp = Physics.params[i_param_ambipolar];
+  double rt_ext_i_ext_cor_temp = Physics.rt_ext[i_ext_cor];
+  double rt_i_rt_tr_tem_temp = Physics.rt[i_rt_tr_tem];
+  double rt_i_rt_tr_pre_temp = Physics.rt[i_rt_tr_pre];
+  double params_i_param_spitzer_temp = Physics.params[i_param_spitzer];
+  double params_i_param_ambipolar_temp = Physics.params[i_param_ambipolar];
   bool diag_temp = Run.diagnostics;
 
-#pragma acc parallel loop collapse(3) gang vector  \
-copy(loc[:bufsz])  \
+#pragma acc parallel loop collapse(3) gang vector \
 present(Grid[:1], Grid.U[:bufsize], Grid.Qthin[:bufsize],   \
        Grid.temp[:bufsize], Grid.pres[:bufsize],  \
        Grid.Tau[:bufsize], Grid.divB[:bufsize],  \
@@ -132,16 +134,12 @@ present(Grid[:1], Grid.U[:bufsize], Grid.Qthin[:bufsize],   \
        Grid.tvar6[:bufsize], Grid.tvar7[:bufsize],  \
        Grid.tvar8[:bufsize], Grid.Qres[:bufsize],   \
        Grid.Qvis[:bufsize], Grid.Qamb[:bufsize],     \
-       Grid.Qtot[:bufsize], Grid.ghosts[:1]    )                    \
-copyin(ioff,    \
-           rt_ext_i_ext_cor_temp, rt_i_rt_tr_tem_temp,  \
-        rt_i_rt_tr_pre_temp, params_i_param_spitzer_temp, \
-             params_i_param_ambipolar_temp)    \
-private(i,j,k,node, ioff, ind, dn, idn, \
-    vx, vy, vz, bx, by, bz, vsqr, eps, \
+       Grid.Qtot[:bufsize], loc[:bufsz]) \
+private(i,j,k,node, ind, dn, idn, \
+     vx, vy, vz, bx, by, bz, vsqr, eps, \
      tvar1, tvar2, tvar3, tvar4, tvar5, \
      tvar6, tvar7, tvar8, Qres, Qvis, Qamb, \
-     Qthin, QChr, QCa, QMg, QH, rfac, ) default(present)
+     Qthin, QChr, QCa, QMg, QH, rfac) 
   for(k=kbeg;k<=kend;k++){
   for(j=jbeg;j<=jend;j++){
   for(i=ibeg;i<=iend;i++){
@@ -173,33 +171,55 @@ private(i,j,k,node, ioff, ind, dn, idn, \
       rfac = 0.0;
 
     // mean state
+#pragma acc atomic update
     loc[ind+0*ioff]  += dn;
+#pragma acc atomic update
     loc[ind+1*ioff]  += eps;
+#pragma acc atomic update
     loc[ind+2*ioff]  += Grid.pres[node];
+#pragma acc atomic update
     loc[ind+3*ioff]  += Grid.temp[node];
+#pragma acc atomic update
     loc[ind+4*ioff]  += Grid.Tau[node];
 
     // v, B
+#pragma acc atomic update
     loc[ind+5*ioff]  += vx*vx;
+#pragma acc atomic update
     loc[ind+6*ioff]  += vy*vy+vz*vz;
+#pragma acc atomic update
     loc[ind+7*ioff]  += bx*bx;  
+#pragma acc atomic update
     loc[ind+8*ioff]  += (by*by+bz*bz);
+#pragma acc atomic update
     loc[ind+9*ioff]  += bx;
+#pragma acc atomic update
     loc[ind+10*ioff] += fabs(bx);
+#pragma acc atomic update
     loc[ind+11*ioff] += sqrt(by*by+bz*bz);
+#pragma acc atomic update
     loc[ind+12*ioff] += Grid.divB[node]*Grid.divB[node];
     
     // vertical MHD + conductive fluxes
+#pragma acc atomic update
     loc[ind+13*ioff] += vx*dn;
+#pragma acc atomic update
     loc[ind+14*ioff] += fabs(vx*dn);   
+#pragma acc atomic update
     loc[ind+15*ioff] += vx*dn*0.5*vsqr;
+#pragma acc atomic update
     loc[ind+16*ioff] += vx*(eps*dn+Grid.pres[node]);
+#pragma acc atomic update
     loc[ind+17*ioff] += eps+Grid.pres[node]/dn;
+#pragma acc atomic update
     loc[ind+18*ioff] += vx*(by*by+bz*bz)-bx*(vy*by+vz*bz);
+#pragma acc atomic update
     loc[ind+19*ioff] -= bx*(vy*by+vz*bz);
 
-    if(params_i_param_spitzer_temp > 0.0)
+    if(params_i_param_spitzer_temp > 0.0){
+#pragma acc atomic update
       loc[ind+20*ioff] += Grid.sflx[node]*bx;
+    }
 
     tvar1 = 0.0;
     tvar2 = 0.0;
@@ -238,42 +258,73 @@ private(i,j,k,node, ioff, ind, dn, idn, \
       Qthin = Grid.Qthin[node];
 
     // Radiation quantities
+#pragma acc atomic update
     loc[ind+21*ioff] += Grid.Qtot[node]*tvar4; // tvar4 -> efac
+#pragma acc atomic update
     loc[ind+22*ioff] += Qthin*tvar4;// tvar4 -> efac
+#pragma acc atomic update
     loc[ind+23*ioff] += QChr*tvar4;// tvar4 -> efac
+#pragma acc atomic update
     loc[ind+24*ioff] += QCa*tvar4;// tvar4 -> efac
+#pragma acc atomic update
     loc[ind+25*ioff] += QMg*tvar4;// tvar4 -> efac
+#pragma acc atomic update
     loc[ind+26*ioff] += QH*tvar4;// tvar4 -> efac
 
     // terms in plasma energy equation
+#pragma acc atomic update
     loc[ind+27*ioff] += dn*(eps+0.5*vsqr);
+#pragma acc atomic update
     loc[ind+28*ioff] += tvar1; // div(F_adv)
+#pragma acc atomic update
     loc[ind+29*ioff] += tvar2; // div(F_cond)
+#pragma acc atomic update
     loc[ind+30*ioff] += tvar3; // wlrt
+#pragma acc atomic update
     loc[ind+31*ioff] += tvar5; // m*g + damping
+#pragma acc atomic update
     loc[ind+32*ioff] += tvar6; // Boris
+#pragma acc atomic update
     loc[ind+33*ioff] += tvar7; // Tcheck
+#pragma acc atomic update
     loc[ind+34*ioff] += tvar8; // numerical diff
+#pragma acc atomic update
     loc[ind+35*ioff] += Qres;
+#pragma acc atomic update
     loc[ind+36*ioff] += Qvis;
+#pragma acc atomic update
     loc[ind+37*ioff] += Qamb;
     
     // terms in plasma energy equation in Corona only
+#pragma acc atomic update
     loc[ind+38*ioff] += rfac; // mask defining corona volume
+#pragma acc atomic update
     loc[ind+39*ioff] += rfac*dn*(eps+0.5*vsqr);
+#pragma acc atomic update
     loc[ind+40*ioff] += rfac*Grid.Qtot[node]*tvar4; // tvar4 -> efac
+#pragma acc atomic update
     loc[ind+41*ioff] += Qthin*tvar4;
+#pragma acc atomic update
     loc[ind+42*ioff] += rfac*tvar1; // div(F_adv)
+#pragma acc atomic update
     loc[ind+43*ioff] += rfac*tvar3; // wlrt
+#pragma acc atomic update
     loc[ind+44*ioff] += rfac*tvar5; // m*g + damping
+#pragma acc atomic update
     loc[ind+45*ioff] += rfac*tvar6; // Boris
+#pragma acc atomic update
     loc[ind+46*ioff] += rfac*tvar7; // Tcheck
+#pragma acc atomic update
     loc[ind+47*ioff] += rfac*tvar8; // numerical diff
+#pragma acc atomic update
     loc[ind+48*ioff] += rfac*Qres;
+#pragma acc atomic update
     loc[ind+49*ioff] += rfac*Qvis;  
   }
 }
 }
+
+#pragma acc exit data copyout(loc[:bufsz]) 
 
   MPI_Reduce(loc,glo,bufsz,MPI_DOUBLE,MPI_SUM,0,YZ_COMM);
   
