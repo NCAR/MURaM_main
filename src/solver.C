@@ -149,11 +149,14 @@ void ComputeSolution(RunData& Run,GridData& Grid,const PhysicsData& Physics,RTS 
           ACCH::UpdateCPU(Grid.Qtot, Grid.bufsize*sizeof(double));
           ACCH::UpdateCPU(Grid.Stot, Grid.bufsize*sizeof(double));
           ACCH::UpdateCPU(Grid.ne, Grid.bufsize*sizeof(double));
-          ACCH::UpdateCPU(Grid.Qthin, Grid.bufsize*sizeof(double));
+	  if(Physics.rt_ext[i_ext_cor]>=1) {
+             ACCH::UpdateCPU(Grid.Qthin, Grid.bufsize*sizeof(double));
+	  }
           ACCH::UpdateCPU(Grid.rhoi, Grid.bufsize*sizeof(double));
           ACCH::UpdateCPU(Grid.amb, Grid.bufsize*sizeof(double));
           ACCH::UpdateCPU(Grid.Tau, Grid.bufsize*sizeof(double));
 	  ACCH::UpdateCPU(Grid.temp, Grid.bufsize*sizeof(double));
+	  ACCH::UpdateCPU(Grid.pres, Grid.bufsize*sizeof(double));
 	  eos_output(Run,Grid,Physics,rts);
 
 	  if (Run.diagnostics){

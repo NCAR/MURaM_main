@@ -173,7 +173,7 @@ void ConsToPrim(GridData& Grid, const PhysicsData& Physics, const RunData& Run) 
         amb[i] = exp(aa);
       }
       
-#pragma acc loop vector 
+#pragma acc loop vector private(xx) 
       for(i=0;i<sz;i++){
     
       // Out of upper table bounds

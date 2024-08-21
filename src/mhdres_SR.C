@@ -249,13 +249,10 @@ if(d == Grid.NDIM-1){
 	vv_amb[i] = 0.0;
 
       if(spitzer){
-        #pragma ivdep
 	  sflx[i] = Grid.sflx[node];
       }
 
       if(ambipolar){
-        #pragma ivdep
-
 	  rho_i = Grid.rhoi[node];
 	  nu_in = Grid.amb[node];
 
@@ -566,7 +563,6 @@ if(d == Grid.NDIM-1){
 	vv_amb[i] = 0.0;
 
       if(ambipolar){
-        #pragma ivdep
 
 	  //rho_i = Grid.rhoi[node];
 	  //nu_in = Grid.amb[node];

@@ -2319,7 +2319,8 @@ void RTS::tauscale_qrad(int band, double DX,double DY,double DZ, double * Ss){
       for(int x=0;x<nx;++x){
         rbuf[y][x]=0.0;
         sbuf[y][x]=0.0;
-#pragma acc loop vector
+        double tmp = 0.0;
+#pragma acc loop vector reduction(+:tmp)
         for(int z=1;z<nz;++z){
           double Ss1 = Ss[y*nx*nz+x*nz+z];
           double Ss2 = Ss[y*nx*nz+x*nz+z-1];
@@ -2327,11 +2328,12 @@ void RTS::tauscale_qrad(int band, double DX,double DY,double DZ, double * Ss){
           if(delta_tau>dtau_min){
             double edt=exp(-delta_tau);
             double c1=(1.0-edt)/delta_tau;
-            sbuf[y][x]+=(Ss1*(1.0-c1)+Ss2*(c1-edt))*exp(-Tau[y*nx*nz+x*nz+z]);
+            tmp+=(Ss1*(1.0-c1)+Ss2*(c1-edt))*exp(-Tau[y*nx*nz+x*nz+z]);
           }else{
-            sbuf[y][x]+=0.5*delta_tau*(Ss1+Ss2);
+            tmp+=0.5*delta_tau*(Ss1+Ss2);
           }  
-        }          
+        }
+        sbuf[y][x] = tmp;	
       }
     }
     ctime=MPI_Wtime(); 
