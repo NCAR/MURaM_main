@@ -99,23 +99,12 @@ void TVDlimit(const RunData&  Run, GridData& Grid,
     
   int stride[3];
   int strided1,strided2,strided3;
-  //int dim_order[3];
-  int dim_order0, dim_order1, dim_order2;
  
   int bounds[3][2];
-
-  //dim_order[0] = 0;
-  //dim_order[1] = 1;
-  //dim_order[2] = 2;
-  dim_order0 = 0;
-  dim_order1 = 1;
-  dim_order2 = 2;
   
   stride[0] = Grid.stride[0];
   stride[1] = Grid.stride[1];
   stride[2] = Grid.stride[2];
-
-  const int loop_order[3][3] = {{ 0, 1, 2 },{ 1, 0, 2 },{ 2, 0, 1 }};
 
   double dn,vv,bb,cs2,va2,lf,rf,hh,cf,cmax,sl,sr,sl_lim,vsqr_diff,lower,upper,
     slm,x2,x4,s,cfast,CME_mode;
@@ -200,9 +189,6 @@ void TVDlimit(const RunData&  Run, GridData& Grid,
 #pragma acc enter data copyin(hft[:vsize])
 #pragma acc enter data copyin(tvd_h[:4])
 #pragma acc enter data copyin(tvd_cs[:4])
-#pragma acc enter data copyin(loop_order[:3][:3])
-//#pragma acc enter data copyin(stride[:3])      
-//#pragma acc enter data copyin(idx[:3])   
     tvd_ini_flag =0;
   }
   if(vmax_lim < 1.0)
@@ -230,11 +216,14 @@ void TVDlimit(const RunData&  Run, GridData& Grid,
     hfb[:vsize], hft[:vsize], qft[:vsize],                          \
     Grid.tvar8[:bufsize], Grid.Qres[:bufsize],                      \
     Grid.Qvis[:bufsize], Grid.tvar6[:bufsize],                      \
-    Grid.tvar7[:bufsize],tvd_cs[:4],tvd_h[:4],loop_order[:3][:3]) //tvd_coeff[:4])  
+    Grid.tvar7[:bufsize],tvd_cs[:4],tvd_h[:4])  
 {
   /* y direction first to be consistent with vertical boundary */
 #pragma acc loop seq independent
   for (d=0;d<Grid.NDIM;d++){
+
+    const int loop_order[3][3] = {{ 0, 1, 2 },{ 1, 0, 2 },{ 2, 0, 1 }};
+
     d1=loop_order[d][0];
     d2=loop_order[d][1];
     d3=loop_order[d][2];

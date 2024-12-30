@@ -202,7 +202,7 @@ double MHD_Residual(const RunData&  Run, GridData& Grid,
     kend = bounds[d3][1];
     jbeg = bounds[d2][0];
     jend = bounds[d2][1];
-#pragma acc enter data copyin(d1,d2,d3,p1,p2,p3,w1,w2,ww0,ww1,ww2)
+//#pragma acc enter data copyin(d1,d2,d3,p1,p2,p3,w1,w2,ww0,ww1,ww2)
 if(d == Grid.NDIM-1){
 
 #pragma acc parallel loop collapse(2) gang                   \
@@ -229,7 +229,7 @@ if(d == Grid.NDIM-1){
  reduction(max:cmax)
     for(k=kbeg; k<=kend; k++)
     for(j=jbeg; j<=jend; j++) {
-#pragma acc cache(d1,d2,d3,p1,p2,p3,w1,w2,ww0,ww1,ww2)
+//#pragma acc cache(d1,d2,d3,p1,p2,p3,w1,w2,ww0,ww1,ww2)
       offset = j*strd2+k*strd3;
       //time = MPI_Wtime();
       #pragma ivdep
@@ -543,7 +543,7 @@ if(d == Grid.NDIM-1){
  reduction(max:cmax)
     for(k=kbeg; k<=kend; k++)
     for(j=jbeg; j<=jend; j++) {
-#pragma acc cache(d1,d2,d3,p1,p2,p3,w1,w2,ww0,ww1,ww2)
+//#pragma acc cache(d1,d2,d3,p1,p2,p3,w1,w2,ww0,ww1,ww2)
       offset = j*strd2+k*strd3;
       //time = MPI_Wtime();
       #pragma ivdep
