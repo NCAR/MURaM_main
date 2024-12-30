@@ -132,8 +132,8 @@ protected:
  
   // Multi-dim arrays
   double *Qt,*St,*Jt;
-  double ** sbuf;
-  double ** rbuf;
+  double * sbuf;
+  double * rbuf;
   double * Qtemp;
 
   double *rho,*lgTe,*lgPe,*ne;

@@ -130,8 +130,8 @@ RTS::~RTS(void)
   ACCH::Free(coeff2, nx*ny*nz*sizeof(double));
 
   ACCH::Free(Qtemp, ny*nx*nz*2);
-  ACCH::Free2D<double>(sbuf, ny, nx);
-  ACCH::Free2D<double>(rbuf, ny, nx);
+  ACCH::Free(sbuf, ny*nx*sizeof(double));
+  ACCH::Free(rbuf, ny*nx*sizeof(double));
   ACCH::Free3D<double>(Col_out, Nbands, col_nz, col_nvar);
    
   del_i5dim(numits,0,Nbands-1,FWD,BWD,RIGHT,LEFT,UP,DOWN,0,NMU-1);
@@ -372,8 +372,8 @@ RTS::RTS(GridData&Grid,RunData &Run,PhysicsData &Physics){
   Qt = (double*) ACCH::Malloc((ny-yo)*(nx-xo)*(nz-zo)*sizeof(double)); // MHD grid
   Jt = (double*) ACCH::Malloc(nx*ny*nz*sizeof(double)); // MHD grid
   St = (double*) ACCH::Malloc(nx*ny*nz*sizeof(double)); // MHD grid
-  sbuf = (double**) ACCH::Malloc2D<double>(ny, nx);
-  rbuf = (double**) ACCH::Malloc2D<double>(ny, nx);
+  sbuf = (double*) ACCH::Malloc(nx*ny*sizeof(double));
+  rbuf = (double*) ACCH::Malloc(nx*ny*sizeof(double));
   Qtemp = (double*) ACCH::Malloc(ny*nx*nz*2*sizeof(double));
 // frequency dependent quantities
   B = (double*) ACCH::Malloc(nx*ny*nz*sizeof(double));
@@ -2178,7 +2178,7 @@ void RTS::get_Tau_and_Iout(GridData &Grid, const RunData &Run, const PhysicsData
  present(this[:1], Tau[:nx*ny*nz], rho[:nx*ny*nz], kap[:nx*ny*nz])
   for(int y = 0; y < ny; y++)
     for(int x = 0; x < nx; x++) {
-      Tau[y*nx*nz+x*nz+(nz-1)]=1.0e-12;
+      Tau[y*nx*nz+x*nz+(nz-1)]=1.0e-12 * ((double) isgend[0]);
 #pragma acc loop seq
       for(int z = nz-2; z >= 0; z--) {
         double k0=kap[y*nx*nz+x*nz+z],r0=rho[y*nx*nz+x*nz+z],k_upw=kap[y*nx*nz+x*nz+(z+1)],r_upw=rho[y*nx*nz+x*nz+(z+1)];
@@ -2188,26 +2188,28 @@ void RTS::get_Tau_and_Iout(GridData &Grid, const RunData &Run, const PhysicsData
     }
 
 #pragma acc parallel loop collapse(2) \
- present(this[:1], sbuf[:ny][:nx], rbuf[:ny][:nx], Tau[:nx*ny*nz])
+ present(this[:1], sbuf[:nx*ny], rbuf[:nx*ny], Tau[:nx*ny*nz])
   for(int y=0;y<ny;++y){ // loop over RT grid
     for(int x=0;x<nx;++x){
-      rbuf[y][x]=0.e0;
-      sbuf[y][x]=Tau[y*nx*nz+x*nz];
+      rbuf[y*nx+x]=0.e0;
+      sbuf[y*nx+x]=Tau[y*nx*nz+x*nz];
     }
   }
+
   double ctime=MPI_Wtime();
-  MPI_Scan(
-    ACCH::GetDevicePtr(sbuf[0]), ACCH::GetDevicePtr(rbuf[0]),
-    nx*ny, MPI_DOUBLE, MPI_SUM, comm_col[lrank[2]][lrank[1]]);
+  MPI_Exscan(ACCH::GetDevicePtr(sbuf),ACCH::GetDevicePtr(rbuf), nx*ny, MPI_DOUBLE, MPI_SUM, comm_col[lrank[2]][lrank[1]]);
   stime+=MPI_Wtime()-ctime;
+  // MPI_Exscan provides garbage on the top process intest of returning zero
+  if(isgend[0] == 0) {
 #pragma acc parallel loop gang collapse(2) \
- present(this[:1], rbuf[:ny][:nx], Tau[:nx*ny*nz])
-  for(int y=0;y<ny;++y){ // loop over RT grid
-    for(int x=0;x<nx;++x){
-      double rbufyx = rbuf[y][x]-Tau[y*nx*nz+x*nz];
+ present(this[:1], rbuf[:nx*ny], Tau[:nx*ny*nz])
+    for(int y=0;y<ny;++y){ // loop over RT grid
+      for(int x=0;x<nx;++x){
+        double rbufyx = rbuf[y*nx+x];
 #pragma acc loop vector
-      for(int z=0;z<nz;++z){
-        Tau[y*nx*nz+x*nz+z]+=rbufyx;
+        for(int z=0;z<nz;++z){
+          Tau[y*nx*nz+x*nz+z]+=rbufyx;
+        }
       }
     }
   }
@@ -2215,11 +2217,11 @@ void RTS::get_Tau_and_Iout(GridData &Grid, const RunData &Run, const PhysicsData
   if (calc_int){
   //  Outgoing Intensity at top (Long Characteristics)
 #pragma acc parallel loop gang collapse(2) \
- present(this[:1], rbuf[:ny][:nx], sbuf[:ny][:nx], B[:nx*ny*nz], Tau[:nx*ny*nz])
+ present(this[:1], rbuf[:nx*ny], sbuf[:nx*ny], B[:nx*ny*nz], Tau[:nx*ny*nz])
   for(int y=0;y<ny;++y){ // loop over RT grid
     for(int x=0;x<nx;++x){
-      rbuf[y][x]=0.0;
-      sbuf[y][x]=0.0;
+      rbuf[y*nx+x]=0.0;
+      sbuf[y*nx+x]=0.0;
       double tmp = 0.0;
 #pragma acc loop vector reduction(+:tmp)
       for(int z=1;z<nz;++z){
@@ -2234,19 +2236,17 @@ void RTS::get_Tau_and_Iout(GridData &Grid, const RunData &Run, const PhysicsData
           tmp+=0.5*delta_tau*(Ss1+Ss2);
         }
       }
-      sbuf[y][x] = tmp;
+      sbuf[y*nx+x] = tmp;
     }
   }
   ctime=MPI_Wtime();
-  MPI_Allreduce(
-    ACCH::GetDevicePtr(sbuf[0]), ACCH::GetDevicePtr(rbuf[0]),
-    nx*ny, MPI_DOUBLE, MPI_SUM, comm_col[lrank[2]][lrank[1]]);
+  MPI_Allreduce(ACCH::GetDevicePtr(sbuf), ACCH::GetDevicePtr(rbuf),nx*ny, MPI_DOUBLE, MPI_SUM, comm_col[lrank[2]][lrank[1]]);
   atime+=MPI_Wtime()-ctime;
 #pragma acc parallel loop collapse(2) \
- present(this[:1], I_band[:ny*nx], rbuf[:ny][:nx])
+ present(this[:1], I_band[:ny*nx], rbuf[:nx*ny])
   for(int y=0;y<ny;++y){
     for(int x=0;x<nx;++x){
-      I_band[y*nx+x]+=rbuf[y][x];
+      I_band[y*nx+x]+=rbuf[y*nx+x];
     }
   }
   }
@@ -2278,47 +2278,49 @@ void RTS::tauscale_qrad(int band, double DX,double DY,double DZ, double * Ss){
 
 #pragma acc enter data copyin(this[:1], Fx[:nx*ny*nz], Fy[:nx*ny*nz], Fz[:nx*ny*nz], \
         I_n[:nx*ny*nz], Qt[:(ny-yo)*(nx-xo)*(nz-zo)], Ss[:nx*ny*nz], \
-        Tau[:nx*ny*nz],kap[:nx*ny*nz], rho[:nx*ny*nz],sbuf[:ny][:nx], rbuf[:ny][:nx])
+        Tau[:nx*ny*nz],kap[:nx*ny*nz], rho[:nx*ny*nz],sbuf[:nx*ny], rbuf[:nx*ny])
 #pragma acc parallel loop collapse(2) \
- present(this[:1], Tau[:nx*ny*nz], kap[:nx*ny*nz], rho[:nx*ny*nz],sbuf[:ny][:nx], rbuf[:ny][:nx])  
+ present(this[:1], Tau[:nx*ny*nz], kap[:nx*ny*nz], rho[:nx*ny*nz],sbuf[:nx*ny], rbuf[:nx*ny])
   for(int y=0;y<ny;y++){ // loop over RT grid
     for(int x=0;x<nx;x++){
-      Tau[y*nx*nz+x*nz+nz-1]=1.0e-12;
+      Tau[y*nx*nz+x*nz+nz-1]=1.0e-12  * ((double) isgend[0]);
       for(int z=nz-2;z>=0;--z){
 	double k0=kap[y*nx*nz+x*nz+z],r0=rho[y*nx*nz+x*nz+z],k_upw=kap[y*nx*nz+x*nz+z+1],r_upw=rho[y*nx*nz+x*nz+z+1];
 	Tau[y*nx*nz+x*nz+z]=Tau[y*nx*nz+x*nz+z+1] + (DZ*((k0*r0+k_upw*r_upw)*inv3+(k0*r_upw+k_upw*r0)*inv6));
       }
       
-      rbuf[y][x]=0.e0;
-      sbuf[y][x]=Tau[y*nx*nz+x*nz];
+      rbuf[y*nx+x]=0.e0;
+      sbuf[y*nx+x]=Tau[y*nx*nz+x*nz];
     }
   }
 
-  double ctime=MPI_Wtime(); 
-  MPI_Scan(
-    ACCH::GetDevicePtr(sbuf[0]), ACCH::GetDevicePtr(rbuf[0]),
-    nx*ny, MPI_DOUBLE, MPI_SUM, comm_col[lrank[2]][lrank[1]]);
+  double ctime=MPI_Wtime();
+  MPI_Exscan(ACCH::GetDevicePtr(sbuf),ACCH::GetDevicePtr(rbuf), nx*ny, MPI_DOUBLE, MPI_SUM, comm_col[lrank[2]][lrank[1]]);
   stime+=MPI_Wtime()-ctime;
+  // MPI_Exscan provides garbage on the top process intest of returning zero
+  if (isgend[0] == 0){
 #pragma acc parallel loop gang collapse(2) \
  present(this[:1], Tau[:nx*ny*nz], rbuf[:ny][:nx])
-  for(int y=0;y<ny;++y){ // loop over RT grid
-    for(int x=0;x<nx;++x){
-      rbuf[y][x]-=Tau[y*nx*nz+x*nz];
+    for(int y=0;y<ny;++y){ // loop over RT grid
+      for(int x=0;x<nx;++x){
+        double rbufyx = rbuf[y*nx+x];
 #pragma acc loop vector
-      for(int z=0;z<nz;++z){
-        Tau[y*nx*nz+x*nz+z]+=rbuf[y][x];
+        for(int z=0;z<nz;++z){
+          Tau[y*nx*nz+x*nz+z]+=rbufyx;
+        }
       }
     }
   }
+
   if (need_I){
     //  Outgoing Intensity at top (Long Characteristics)
 #pragma acc parallel loop gang collapse(2) \
  present(this[:1], Tau[:nx*ny*nz], Ss[:nx*ny*nz], \
-         rbuf[:ny][:nx], sbuf[:ny][:nx])
+         rbuf[:nx*ny], sbuf[:nx*ny])
     for(int y=0;y<ny;++y){ // loop over RT grid
       for(int x=0;x<nx;++x){
-        rbuf[y][x]=0.0;
-        sbuf[y][x]=0.0;
+        rbuf[y*nx+x]=0.0;
+        sbuf[y*nx+x]=0.0;
         double tmp = 0.0;
 #pragma acc loop vector reduction(+:tmp)
         for(int z=1;z<nz;++z){
@@ -2333,19 +2335,17 @@ void RTS::tauscale_qrad(int band, double DX,double DY,double DZ, double * Ss){
             tmp+=0.5*delta_tau*(Ss1+Ss2);
           }  
         }
-        sbuf[y][x] = tmp;	
+        sbuf[y*nx+x] = tmp;
       }
     }
     ctime=MPI_Wtime(); 
-    MPI_Allreduce(
-      ACCH::GetDevicePtr(sbuf[0]), ACCH::GetDevicePtr(rbuf[0]),
-      nx*ny, MPI_DOUBLE, MPI_SUM, comm_col[lrank[2]][lrank[1]]);
+    MPI_Allreduce(ACCH::GetDevicePtr(sbuf), ACCH::GetDevicePtr(rbuf),nx*ny, MPI_DOUBLE, MPI_SUM, comm_col[lrank[2]][lrank[1]]);
     ctime+=MPI_Wtime()-ctime;
 #pragma acc parallel loop collapse(2) \
- present(this[:1], I_o[:nx*ny], rbuf[:ny][:nx])
+ present(this[:1], I_o[:nx*ny], rbuf[:nx*ny])
     for(int y=0;y<ny;++y){
       for(int x=0;x<nx;++x){
-        I_o[y*nx+x]+=rbuf[y][x];
+        I_o[y*nx+x]+=rbuf[y*nx+x];
       }
     }
 
