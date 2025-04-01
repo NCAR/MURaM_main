@@ -1963,6 +1963,8 @@ void RTS::exchange(int band,int l,int ZDIR,int XDIR,int YDIR)
   int source_rk;
   real tempxsb[nz];
   real tempzsb[nx];
+  real tmp[ny];
+
 
   int adrX = (((((band*2+YDIR)*2+XDIR)*2+ZDIR)*NMU+l)*ny*nz);
   int adrY = (((((band*2+YDIR)*2+XDIR)*2+ZDIR)*NMU+l)*nx*nz);
@@ -1975,8 +1977,9 @@ void RTS::exchange(int band,int l,int ZDIR,int XDIR,int YDIR)
   real * zsb = &z_sbuf[adrZ];
   real * zrb = &z_rbuf[adrZ];
 
+#pragma acc enter data copyin(tmp[:ny])
 
-#pragma acc data present(this[:1],yrb[:nx*nz], ysb[:nx*nz],xrb[:ny*nz], xsb[:ny*nz],zrb[:ny*nx],zsb[:ny*nx]) 
+#pragma acc data present(this[:1],yrb[:nx*nz], ysb[:nx*nz],xrb[:ny*nz], xsb[:ny*nz],zrb[:ny*nx],zsb[:ny*nx],tmp[:ny])
 {
   if (NDIM==3){
     // y-direction
@@ -1995,7 +1998,7 @@ void RTS::exchange(int band,int l,int ZDIR,int XDIR,int YDIR)
 }  
 
 #pragma acc parallel loop collapse(2) present(this[:1],yrb[:nx*nz], xsb[:ny*nz],\
-   zsb[:ny*nx])  
+   zsb[:ny*nx])
     for(int x=0;x<nx;++x){
       for(int z=0;z<nz;++z){
         xsb[z*ny+y0]=yrb[z*nx+x0];
@@ -2018,9 +2021,19 @@ void RTS::exchange(int band,int l,int ZDIR,int XDIR,int YDIR)
 } 
     x0=(XDIR==RIGHT)?0:nx-1;
     z0=(ZDIR==UP)?nz-1:0;
+/*
 #pragma acc parallel loop present(this[:1],xrb[:ny*nz], zsb[:nx*ny])
     for(int y=0;y<ny;++y)
       zsb[x0*ny+y]=xrb[z0*ny+y];
+*/
+
+#pragma acc parallel loop present(this[:1], xrb[:ny*nz], tmp[:ny])
+    for(int y=0;y<ny;++y)
+      tmp[y]=xrb[z0*ny+y];
+
+#pragma acc parallel loop present(this[:1], zsb[:nx*ny], tmp[:ny])
+    for(int y=0;y<ny;++y)
+      zsb[x0*ny+y]=tmp[y];
   }
   
 // z-direction
@@ -2045,22 +2058,15 @@ void RTS::flux(int l,int ZDIR,int XDIR,int YDIR)
   double c_x = 0.5*PI*xsign*wmu[l]*xmu[0][l];
   double c_y = 0.5*PI*ysign*wmu[l]*xmu[1][l];
 
-#pragma acc parallel loop collapse(2) gang \
+#pragma acc parallel loop gang vector \
  present(this[:1], I_n[:nx*ny*nz], J_band[:nx*ny*nz], \
          Fz[:nx*ny*nz], Fy[:nx*ny*nz], Fx[:nx*ny*nz])
-  for(int y = 0; y < ny; y++) {
-    for(int x = 0; x < nx; x++) {
-      int yxind = y*nx*nz + x*nz;
-#pragma acc loop vector
-      for(int z = 0; z < nz; z++) {
-        int ind = yxind + z;
-        double tmp = I_n[ind];
-        J_band[ind] += c_J*tmp;
-        Fz[ind]     += c_z*tmp;
-        Fx[ind]     += c_x*tmp;
-        Fy[ind]     += c_y*tmp;
-      }
-    }
+  for(int i = 0; i < nx*ny*nz; i++) {
+     double tmp = I_n[i];
+     J_band[i] += c_J*tmp;
+     Fz[i]     += c_z*tmp;
+     Fx[i]     += c_x*tmp;
+     Fy[i]     += c_y*tmp;
   }
 
 }
@@ -2199,7 +2205,7 @@ void RTS::get_Tau_and_Iout(GridData &Grid, const RunData &Run, const PhysicsData
   double ctime=MPI_Wtime();
   MPI_Exscan(ACCH::GetDevicePtr(sbuf),ACCH::GetDevicePtr(rbuf), nx*ny, MPI_DOUBLE, MPI_SUM, comm_col[lrank[2]][lrank[1]]);
   stime+=MPI_Wtime()-ctime;
-  // MPI_Exscan provides garbage on the top process intest of returning zero
+  // MPI_Exscan provides garbage on the top process instead of returning zero
   if(isgend[0] == 0) {
 #pragma acc parallel loop gang collapse(2) \
  present(this[:1], rbuf[:nx*ny], Tau[:nx*ny*nz])
@@ -2297,7 +2303,7 @@ void RTS::tauscale_qrad(int band, double DX,double DY,double DZ, double * Ss){
   double ctime=MPI_Wtime();
   MPI_Exscan(ACCH::GetDevicePtr(sbuf),ACCH::GetDevicePtr(rbuf), nx*ny, MPI_DOUBLE, MPI_SUM, comm_col[lrank[2]][lrank[1]]);
   stime+=MPI_Wtime()-ctime;
-  // MPI_Exscan provides garbage on the top process intest of returning zero
+  // MPI_Exscan provides garbage on the top process instead of returning zero
   if (isgend[0] == 0){
 #pragma acc parallel loop gang collapse(2) \
  present(this[:1], Tau[:nx*ny*nz], rbuf[:ny][:nx])
@@ -2351,29 +2357,23 @@ void RTS::tauscale_qrad(int band, double DX,double DY,double DZ, double * Ss){
 
   }
 //  radiative energy imbalance
-#pragma acc parallel loop gang collapse(2) \
+#pragma acc parallel loop gang vector \
  present(this[:1], I_n[:nx*ny*nz], kap[:nx*ny*nz], rho[:nx*ny*nz], \
          J_band[:nx*ny*nz], St[:nx*ny*nz], Jt[:nx*ny*nz], Ss[:nx*ny*nz])
-  for(int y=0;y<ny;++y){
-    for(int x=0;x<nx;++x){
-#pragma acc loop vector
-      for(int z=0;z<nz;++z){
-        I_n[y*nx*nz+x*nz+z]=kap[y*nx*nz+x*nz+z]*rho[y*nx*nz+x*nz+z]*(J_band[y*nx*nz+x*nz+z]-Ss[y*nx*nz+x*nz+z]);
-        St[y*nx*nz+x*nz+z] +=Ss[y*nx*nz+x*nz+z];
-        Jt[y*nx*nz+x*nz+z] +=J_band[y*nx*nz+x*nz+z];
-      }
-    }
+  for(int i=0;i<nx*ny*nz;i++){
+     I_n[i] = kap[i]*rho[i]*(J_band[i]-Ss[i]);
+     St[i] += Ss[i];
+     Jt[i] += J_band[i];
   }
 
 // 
   double inv_tau_0=1.0e1;
-#pragma acc parallel loop gang collapse(2) \
+#pragma acc parallel loop gang vector collapse(3) \
 present(this[:1], Fx[:nx*ny*nz], Fy[:nx*ny*nz], Fz[:nx*ny*nz], \
         I_n[:nx*ny*nz], Qt[:(ny-yo)*(nx-xo)*(nz-zo)], \
         Tau[:nx*ny*nz])
   for(int y=0;y<ny-yo;y++){
     for(int x=0;x<nx-xo;x++){
-#pragma acc loop vector
       for(int z=0;z<nz-zo;z++){
         double qf1=
           (
@@ -2435,11 +2435,10 @@ present(this[:1], Fx[:nx*ny*nz], Fy[:nx*ny*nz], Fz[:nx*ny*nz], \
         double weight=exp(-tau_local*inv_tau_0);
         //Qtemp[y][x][z+zo][0]=qf1;
         //Qtemp[y][x][z+zo][1]=qj1;
-        int QtmpAdr = (y*nx*nz*2)+(x*nz*2)+((z+zo)*2);
-        Qtemp[QtmpAdr]=qf1;
-        Qtemp[QtmpAdr+1]=qj1;
-        Qt[(((y)*(nx-xo)+(x))*(nz-zo)+(z-zo+1))]+=weight*qj1+(1.0-weight)*qf1;
-        
+        //int QtmpAdr = (y*nx*nz*2)+(x*nz*2)+((z+zo)*2);
+        //Qtemp[QtmpAdr]=qf1;
+        //Qtemp[QtmpAdr+1]=qj1;
+        Qt[ y*(nx-xo)*(nz-zo) + x*(nz-zo) + z ]+=weight*qj1+(1.0-weight)*qf1;
       }
     }
   }
@@ -3124,22 +3123,15 @@ void Transpose_flux_kernel(
   const int nx, const int ny, const int nz
 )
 {
-#pragma acc parallel loop collapse(2) gang \
+#pragma acc parallel loop gang vector \
  present(I_n[:nx*ny*nz], J_band[:nx*ny*nz], \
          Fz[:nx*ny*nz], Fy[:nx*ny*nz], Fx[:nx*ny*nz])
-  for(int y = 0; y < ny; y++) {
-    for(int x = 0; x < nx; x++) {
-      int yxind = y*nx*nz + x*nz;
-#pragma acc loop vector
-      for(int z = 0; z < nz; z++) {
-        int ind = yxind + z;
-        double tmp = I_n[ind];
-        J_band[ind] += c_J*tmp;
-        Fz[ind]     += c_z*tmp;
-        Fx[ind]     += c_x*tmp;
-        Fy[ind]     += c_y*tmp;
-      }
-    }
+  for(int i = 0; i < nx*ny*nz; i++) {
+     double tmp = I_n[i];
+     J_band[i] += c_J*tmp;
+     Fz[i]     += c_z*tmp;
+     Fx[i]     += c_x*tmp;
+     Fy[i]     += c_y*tmp;
   }
 
 }
