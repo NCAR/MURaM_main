@@ -58,9 +58,12 @@ In order to benchmark against a reference run use the Jupyter notebook TEST/veri
 
 ###################
 
-WARNING - 2D likely does not function!!!!!!!
+WARNING - 2D likely does not function!!!!!!! All recent development focused on the 3D version
 
 ##################
-Known Issues:
 
-NVHPC does not work on CPUs with optimization higher than -O1, it does work if compiled with -acc=multicore 
+The code has been developled and tested with the nvhpc compiler, currently up to version 25.7
+
+##################
+
+A description of all the code parameters is found in the file "Parameters_Reference.pdf" in the RUNDIR directory
