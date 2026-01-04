@@ -35,7 +35,7 @@ OBJS = ACCH.o \
        exchange.o \
        potential_sd_fftw3.o \
        potential_sd_fftw3_par.o \
-	   potential_sd_heffte.o \
+       potential_sd_heffte_kernels.o \
        boundary_pdmp_1_fftw3.o \
        solver.o \
        eos_init.o \
