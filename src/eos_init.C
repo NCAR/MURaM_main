@@ -16,10 +16,11 @@ using std::endl;
 int N_eps,N_lr,N_lp3,N_s3;
 #pragma acc declare create(N_eps, N_lr, N_lp3, N_s3)
 double del_eps,del_lr,del_lp3,del_s3;
+#pragma acc declare create(del_eps,del_lr,del_lp3,del_s3)
 double inv_del_eps,inv_del_lr,inv_del_lp3,inv_del_s3;
-#pragma acc declare create(inv_del_eps, inv_del_lr)
+#pragma acc declare create(inv_del_eps, inv_del_lr, inv_del_lp3, inv_del_s3)
 double eps_off, ss_off;
-#pragma acc declare create(ss_off, eps_off, inv_del_lp3, inv_del_s3)
+#pragma acc declare create(ss_off, eps_off)
 
 double *xeps;
 #pragma acc declare create(xeps)
@@ -28,11 +29,15 @@ double *xlr;
 eos_real **p_eostab;
 #pragma acc declare create(p_eostab)
 eos_real **T_eostab;
+#pragma acc declare create(T_eostab)
 eos_real **s_eostab;
 #pragma acc declare create(s_eostab)
 eos_real **ne_eostab; 
+#pragma acc declare create(ne_eostab)
 eos_real **rhoi_eostab;
+#pragma acc declare create(rhoi_eostab)
 eos_real **amb_eostab;
+#pragma acc declare create(amb_eostab)
 
 double *xlp3;
 #pragma acc declare create(xlp3)
@@ -146,11 +151,9 @@ void eos_init(GridData& Grid, RunData& Run, const PhysicsData& Physics) {
   for (i=0; i<N_lp3; i++) {
     xlp3[i] = lp0+del_lp3 * ((double) i);
   }
-#pragma acc enter data copyin(xlp3[:N_lp3])
   for (i=0; i<N_s3;  i++) {
     xs3[i]  = s0+del_s3 * ((double) i);
   }
-#pragma acc enter data copyin(xs3[:N_s3])
 
   // Temporary buffer
   buffsize = 6*N_eps*N_lr;
@@ -196,18 +199,24 @@ void eos_init(GridData& Grid, RunData& Run, const PhysicsData& Physics) {
       d3_eostab[i][j]   = ((double) buff[ind2])/(del_lp3*del_s3);
     }
   }
-#pragma acc enter data copyin(d3_eostab[:N_lp3][:N_s3])
-#pragma acc enter data copyin(eps3_eostab[:N_lp3][:N_s3]) 
+
   delete[] buff;
 
 #pragma acc enter data copyin(xeps[:N_eps])
 #pragma acc enter data copyin(xlr[:N_lr])
+
 #pragma acc enter data copyin(p_eostab[:N_eps][:N_lr])
 #pragma acc enter data copyin(T_eostab[:N_eps][:N_lr])
 #pragma acc enter data copyin(s_eostab[:N_eps][:N_lr])
 #pragma acc enter data copyin(ne_eostab[:N_eps][:N_lr])
 #pragma acc enter data copyin(rhoi_eostab[:N_eps][:N_lr])
 #pragma acc enter data copyin(amb_eostab[:N_eps][:N_lr])
+
+#pragma acc enter data copyin(xlp3[:N_lp3])
+#pragma acc enter data copyin(xs3[:N_s3])
+
+#pragma acc enter data copyin(d3_eostab[:N_lp3][:N_s3])
+#pragma acc enter data copyin(eps3_eostab[:N_lp3][:N_s3]) 
 
 }
 

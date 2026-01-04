@@ -43,16 +43,12 @@ void ConsToPrim(GridData& Grid, const PhysicsData& Physics, const RunData& Run) 
   //static int call_count = 0;
   //s_time = MPI_Wtime();
   
-  int i,j,k,node,i_d,i_e;
-  int kbeg, kend, jbeg, jend, ibeg, iend;
   const int bufsize = Grid.bufsize;
 
-  double ep,lr,dn,vv,xx;
-
-  const double eps_max=exp(xeps[N_eps-1])-eps_off;
+  const double eps_max=exp(xeps[N_eps-1]);
 
   int sz = Grid.lsize[0]+2*Grid.ghosts[0];
-  const int v_nvar = Grid.v_nvar;
+  
   /* ideal gas law for out of bound values */
   const double Rgas=8.314e7;
 
@@ -61,38 +57,29 @@ void ConsToPrim(GridData& Grid, const PhysicsData& Physics, const RunData& Run) 
 
   cState* U = Grid.U;
 
-  double var[5][sz], 
-  eps[sz], 
-  lgr[sz], pres[sz], temp[sz],nel[sz],amb[sz],rhoi[sz],coeff0,coeff1,coeff2,coeff3;
+  double var[5][sz],eps[sz],lgr[sz],pres[sz],temp[sz],nel[sz],amb[sz],rhoi[sz];
 
-  kbeg = Grid.lbeg[2]-Grid.ghosts[2];
-  kend = Grid.lend[2]+Grid.ghosts[2];
-  jbeg = Grid.lbeg[1]-Grid.ghosts[1];
-  jend = Grid.lend[1]+Grid.ghosts[1];
-  ibeg = Grid.lbeg[0]-Grid.ghosts[0];
-  iend = Grid.lend[0]+Grid.ghosts[0];
+  int kbeg = Grid.lbeg[2]-Grid.ghosts[2];
+  int kend = Grid.lend[2]+Grid.ghosts[2];
+  int jbeg = Grid.lbeg[1]-Grid.ghosts[1];
+  int jend = Grid.lend[1]+Grid.ghosts[1];
+  int ibeg = Grid.lbeg[0]-Grid.ghosts[0];
+  int iend = Grid.lend[0]+Grid.ghosts[0];
 
-#pragma acc enter data copyin(Grid[:1], U[:bufsize], Grid.pres[:bufsize],           \
-  Grid.temp[:bufsize], Grid.ne[:bufsize],                      \
-  Grid.rhoi[:bufsize], Grid.amb[:bufsize],                     \
-  xeps[:N_eps], xlr[:N_lr], p_eostab[:N_eps][:N_lr],           \
-  T_eostab[:N_eps][:N_lr], s_eostab[:N_eps][:N_lr],            \
-  ne_eostab[:N_eps][:N_lr], rhoi_eostab[:N_eps][:N_lr],        \
-  amb_eostab[:N_eps][:N_lr])
-
-//cout << "Before loop" << endl;
-#pragma acc parallel loop collapse(2) gang                     \
- default(present)                                   \
- private(var[:5][:sz],         \
-   eps[:sz],                           \
-  lgr[:sz], pres[:sz], temp[:sz], nel[:sz],                    \
-  amb[:sz], rhoi[:sz])
-  for(k=kbeg; k<=kend; k++){
-    for(j=jbeg; j<=jend; j++){
+#pragma acc parallel loop collapse(2) gang                               \
+ present(Grid[:1], U[:bufsize], Grid.pres[:bufsize],Grid.temp[:bufsize], \
+         Grid.ne[:bufsize], Grid.rhoi[:bufsize], Grid.amb[:bufsize],     \
+	 xeps[:N_eps], xlr[:N_lr], p_eostab[:N_eps][:N_lr],              \
+         T_eostab[:N_eps][:N_lr], s_eostab[:N_eps][:N_lr],               \
+         ne_eostab[:N_eps][:N_lr], rhoi_eostab[:N_eps][:N_lr],           \
+         amb_eostab[:N_eps][:N_lr])                                      \
+ private(var[:5][:sz],eps[:sz],lgr[:sz], pres[:sz], temp[:sz], nel[:sz], amb[:sz], rhoi[:sz])
+  for(int k=kbeg; k<=kend; k++){
+    for(int j=jbeg; j<=jend; j++){
       //time = MPI_Wtime();
-#pragma acc loop vector private(node)
-      for(i=0;i<sz;i++){
-        node = Grid.node(i,j,k);
+#pragma acc loop vector
+      for(int i=0;i<sz;i++){
+        int node = Grid.node(i,j,k);
         var[0][i] = U[node].d;
         var[1][i] = U[node].M.x;
         var[2][i] = U[node].M.y;
@@ -105,14 +92,14 @@ void ConsToPrim(GridData& Grid, const PhysicsData& Physics, const RunData& Run) 
       //r_time += MPI_Wtime()-time;
 
       //time = MPI_Wtime();
-#pragma acc loop vector private(dn, vv) 
-      for(i=0;i<sz;i++){
-        dn        = 1.0/var[0][i];
+#pragma acc loop vector 
+      for(int i=0;i<sz;i++){
+        double dn = 1.0/var[0][i];
         var[1][i] = var[1][i]*dn;
         var[2][i] = var[2][i]*dn;
         var[3][i] = var[3][i]*dn;
 
-        vv  = (var[1][i]*var[1][i]+
+        double vv = (var[1][i]*var[1][i]+
         var[2][i]*var[2][i]+
 	var[3][i]*var[3][i]);
         var[4][i] = var[4][i] - 0.5*vv*var[0][i];
@@ -122,24 +109,24 @@ void ConsToPrim(GridData& Grid, const PhysicsData& Physics, const RunData& Run) 
         lgr[i] = log(var[0][i]);
       }
 
-#pragma acc loop vector private(ep, lr, i_d, i_e,coeff0,coeff1,coeff2,coeff3)
-      for(i=0;i<sz;i++){
+#pragma acc loop vector
+      for(int i=0;i<sz;i++){
 
-        ep = log(eps[i]);
-        lr = lgr[i];
+        double ep = log(eps[i]);
+        double lr = lgr[i];
 
-	i_d = (int) ( (lr-xlr[0])*inv_del_lr );
+	int i_d = (int) ( (lr-xlr[0])*inv_del_lr );
         i_d = max(0,i_d);
         i_d = min(N_lr-2,i_d);
         
-        i_e = (int) ((ep-xeps[0])*inv_del_eps );
+        int i_e = (int) ((ep-xeps[0])*inv_del_eps );
         i_e = max(0,i_e);
         i_e = min(N_eps-2,i_e);
   
-        coeff0 = (ep-xeps[i_e])   * (lr-xlr[i_d]);
-        coeff1 = (ep-xeps[i_e])   * (xlr[i_d+1]-lr);
-        coeff2 = (xeps[i_e+1]-ep) * (lr-xlr[i_d]);
-        coeff3 = (xeps[i_e+1]-ep) * (xlr[i_d+1]-lr);
+        double coeff0 = (ep-xeps[i_e])   * (lr-xlr[i_d]);
+        double coeff1 = (ep-xeps[i_e])   * (xlr[i_d+1]-lr);
+        double coeff2 = (xeps[i_e+1]-ep) * (lr-xlr[i_d]);
+        double coeff3 = (xeps[i_e+1]-ep) * (xlr[i_d+1]-lr);
           
         double pp  = coeff0 * (double) p_eostab[i_e+1][i_d+1];
         pp += coeff1 * (double) p_eostab[i_e+1][i_d];
@@ -168,13 +155,13 @@ void ConsToPrim(GridData& Grid, const PhysicsData& Physics, const RunData& Run) 
 
         pres[i] = exp(pp);
         temp[i] = exp(tt);
-        nel[i] = exp(nn);
+        nel[i]  = exp(nn);
         rhoi[i] = exp(ii);
-        amb[i] = exp(aa);
+        amb[i]  = exp(aa);
       }
       
-#pragma acc loop vector private(xx) 
-      for(i=0;i<sz;i++){
+#pragma acc loop vector
+      for(int i=0;i<sz;i++){
     
       // Out of upper table bounds
       if( (lgr[i] < xlr[0]) ) {
@@ -185,7 +172,7 @@ void ConsToPrim(GridData& Grid, const PhysicsData& Physics, const RunData& Run) 
       }
   
       if (eps[i] > 0.8*eps_max) {
-        xx = max(0.0,5.0*(eps_max-eps[i])/eps_max);
+        double xx = max(0.0,5.0*(eps_max-eps[i])/eps_max);
         pres[i]=pres[i]*xx+(1.0-xx)*c_pres*var[4][i];
         temp[i]=temp[i]*xx+(1.0-xx)*c_temp*eps[i];
         // Use PV = nrt for ne
@@ -206,9 +193,9 @@ void ConsToPrim(GridData& Grid, const PhysicsData& Physics, const RunData& Run) 
       } // end loop
 
       //time = MPI_Wtime();
-#pragma acc loop vector private(node) 
-      for(i=ibeg;i<=iend;i++){
-        node = Grid.node(i,j,k);
+#pragma acc loop vector 
+      for(int i=ibeg;i<=iend;i++){
+        int node = Grid.node(i,j,k);
         U[node].M.x=var[1][i];
         U[node].M.y=var[2][i];
         U[node].M.z=var[3][i];
@@ -216,9 +203,9 @@ void ConsToPrim(GridData& Grid, const PhysicsData& Physics, const RunData& Run) 
         
         Grid.pres[node] = pres[i];
         Grid.temp[node] = temp[i];
-        Grid.ne[node] = nel[i];
+        Grid.ne[node]   = nel[i];
         Grid.rhoi[node] = rhoi[i];
-        Grid.amb[node] = amb[i];
+        Grid.amb[node]  = amb[i];
 
       }
       //r_time += MPI_Wtime()-time;
