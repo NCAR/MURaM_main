@@ -95,7 +95,7 @@ RTS::~RTS(void)
 
 ///*
   ACCH::Free(I_o, ny*nx*sizeof(double)); // RT Grid
-  ACCH::Free(tr_switch, nx*ny*nz*sizeof(int)); // switch for the lowest point at which we have reached the transition region
+  ACCH::Free(tr_switch, nx*ny*nz*sizeof(double)); // switch for the lowest point at which we have reached the transition region
   ACCH::Free(lgTe, nx*ny*nz*sizeof(double)); // temperature
   ACCH::Free(lgPe, nx*ny*nz*sizeof(double)); // temperature
   ACCH::Free(T_ind, nx*ny*nz*sizeof(int)); // temperature
@@ -203,6 +203,22 @@ double RTS::Qtot(int z,int x,int y)
 {  
   //return Qt[y-yl-yo][x-xl-xo][z-zl-zo];
   return Qt[(((y-yl-yo)*(nx-xo)+(x-xl-xo))*(nz-zo)+(z-zl-zo))];
+}
+
+double RTS::TRSW(int z,int x,int y){
+  int ind = y*nx*nz + x*nz + z;
+  int y_o = yo*nx*nz;
+  int x_o = xo*nz;
+  int z_o = zo;
+  double TR_local = tr_switch[ind] +
+                    tr_switch[ind - y_o] +
+                    tr_switch[ind - x_o] +
+                    tr_switch[ind - z_o] +
+                    tr_switch[ind - y_o - x_o] +
+                    tr_switch[ind - y_o - z_o] +
+                    tr_switch[ind - x_o - z_o] +
+                    tr_switch[ind - y_o - x_o - z_o];
+  return TR_local * 0.125;
 }
 
 
@@ -365,7 +381,7 @@ RTS::RTS(GridData&Grid,RunData &Run,PhysicsData &Physics){
   T_ind = (int*) ACCH::Malloc(nx*ny*nz*sizeof(int)); // pressure
   P_ind = (int*) ACCH::Malloc(nx*ny*nz*sizeof(int)); // pressure
   rho = (double*) ACCH::Malloc(nx*ny*nz*sizeof(double)); // RT grid
-  tr_switch = (int*) ACCH::Malloc(nx*ny*nz*sizeof(int));
+  tr_switch = (double*) ACCH::Malloc(nx*ny*nz*sizeof(double));
 
   Tau = (double*) ACCH::Malloc(nx*ny*nz*sizeof(double));  // RT grid
 
@@ -873,7 +889,7 @@ double RTS::wrapper(int rt_upd,GridData &Grid,RunData &Run,const PhysicsData &Ph
         //disbale RT if Temp > Temp_TR above the photosphere
         double pswitch = min(max(pm-Pres_TR,0.0),1.0);
         double tswitch = min(max(Temp_TR-Tm,0.0),1.0);
-        tr_switch[ind] = (int) max(pswitch,tswitch);
+        tr_switch[ind] = max(pswitch,tswitch);
         
         lgTe[ind]=log(Tm);
         lgPe[ind]=log(pm);
@@ -1139,7 +1155,7 @@ void RTS::calc_Qtot_and_Tau(GridData &Grid, const RunData &Run, const PhysicsDat
 	Grid.Stot[node] = Stot(z, x, y);
 	int ind = xyoff + z;
 	double scale = pow(Grid.Tau[node], 2);
-	scale = scale/(scale + tau_min)*tr_switch[ind];
+	scale = scale/(scale + tau_min)*TRSW(z, x, y);
         double Qt_step = Qt[(((y-yo)*(nx-xo)+(x-xo))*(nz-zo)+(z-zo))]*scale;
 	double inv_dt = fabs(Qt_step)/U[node].e;
 	_dt_rad = max(_dt_rad, inv_dt);

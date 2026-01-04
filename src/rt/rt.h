@@ -36,7 +36,7 @@
 
 #define dtau_min  1.0E-5
 #define dtau_min2  1.0E-10
-#define threshold 0.001
+#define threshold 1.0E-4 
 
 #define C   2.99792458E10            // cm/s
 #define h   6.6260687652E-27         // erg s
@@ -182,7 +182,7 @@ protected:
 
   double * I_band;
 
-  int *tr_switch;
+  double *tr_switch;
   void driver(double DZ, double DX, double DY, int band); 
   void interpol(int,int,int,int,int,int,int,int,int,int,double*,double*);
   void IntegrateSetup(int yi_i, int xi_i, int zi_i, int ystep, int xstep, int zstep);
@@ -207,6 +207,7 @@ public:
   RTS(GridData & Grid, RunData & Run, PhysicsData & Physics);
   virtual ~RTS(void);
   virtual double wrapper(int,GridData&,RunData&,const PhysicsData&);
+  double TRSW(int,int,int);
   double tau(int,int,int); 
   double Qtot(int,int,int); 
   double Stot(int,int,int);
