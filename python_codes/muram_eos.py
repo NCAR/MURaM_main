@@ -9,14 +9,21 @@ class mu_eos:
     with open(eos_file, "rb") as file:
       filedata=file.read()
 
-    ind_low = np.int(0)
-    ind_high = np.int(14*4)
-    temp = struct.unpack("f" * ((ind_high-ind_low)//4),filedata[ind_low:ind_high])
+    ind_low = int(0)
+    ind_high = int(14*4)
+    if(table == "f"):
+        ind_low = int(0)
+        ind_high = int(14*4)
+        temp = struct.unpack("f" * ((ind_high-ind_low)//4),filedata[ind_low:ind_high])
+    elif (table == "d"):
+        ind_low = int(0)
+        ind_high = int(14*8)
+        temp = struct.unpack("d" * ((ind_high-ind_low)//8),filedata[ind_low:ind_high])
 
-    self.n_eps = np.int(temp[0])
-    self.n_rho = np.int(temp[1])
-    self.n_p = np.int(temp[2])
-    self.n_s = np.int(temp[3])
+    self.n_eps = int(temp[0])
+    self.n_rho = int(temp[1])
+    self.n_p = int(temp[2])
+    self.n_s = int(temp[3])
 
     print (self.n_eps,self.n_rho,self.n_p,self.n_s)
     
@@ -31,16 +38,21 @@ class mu_eos:
 
     self.eps_off = temp[12]
     self.ss_off = temp[13]
+    
+    print ( np.exp(self.eps0),np.exp(self.eps1) )
+    print ( np.exp(self.lr0),np.exp(self.lr1) )
+    print ( np.exp(self.lp0),np.exp(self.lp1) )
+    print ( self.s0,self.s1 )
 
     self.del_lr=(self.lr1-self.lr0)/(self.n_rho-1)
     self.del_eps=(self.eps1-self.eps0)/(self.n_eps-1)
     self.del_p=(self.lp1-self.lp0)/(self.n_p-1)
     self.del_s=(self.s1-self.s0)/(self.n_s-1)
     
-    if (axis is "f"):
+    if (axis == "f"):
       axis_size = 4
       axis_type = np.dtype(np.float32)
-    elif (axis is "d"):
+    elif (axis == "d"):
       axis_size = 8
       axis_type = np.dtype(np.float64)
 
@@ -49,10 +61,10 @@ class mu_eos:
     self.xp = np.asarray(self.lp0+np.arange(self.n_p)*self.del_p,dtype=axis_type)
     self.xs = np.asarray(self.s0+np.arange(self.n_s)*self.del_s,dtype=axis_type)
 
-    if (table is "f"):
+    if (table == "f"):
       table_size = 4
       table_type = np.dtype(np.float32)
-    elif (table is "d"):
+    elif (table == "d"):
       table_size = 8
       table_type = np.dtype(np.float64)
 
@@ -187,7 +199,7 @@ class mu_eos:
     ee = np.interp(ee,self.xeps,np.arange(self.n_eps))
     rr = np.interp(rr,self.xrho,np.arange(self.n_rho))
     
-    output = bilinear_interpolate(self.ambtbl, ee,rr)
+    output = bilinear_interpolate(self.rhoitbl, ee,rr)
     output = np.exp(output)
     
     return output

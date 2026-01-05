@@ -62,8 +62,12 @@ WARNING - 2D likely does not function!!!!!!! All recent development focused on t
 
 ##################
 
-The code has been developled and tested with the nvhpc compiler, currently up to version 25.7
+The code has been developled and tested with the nvhpc compiler, currently up to version 25.9
 
 ##################
 
 A description of all the code parameters is found in the file "Parameters_Reference.pdf" in the RUNDIR directory
+
+##################
+
+Check python_codes/SetupNew/CreateInitialState.ipynb for examples of how to set up new simulations (photosphere and photosphere - corona) 

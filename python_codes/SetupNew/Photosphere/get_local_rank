@@ -1,0 +1,71 @@
+#!/bin/bash
+
+my_name=set_gpu_rank
+my_host=$(hostname)
+
+function usage {
+cat << EOF
+Usage: mpiexec [MPI_ARGS] $my_name ./application [APP_ARGS]
+
+A helpful launcher for GPU applications launched via MPI. Sets important
+environment variables and maps GPUs to MPI ranks.
+EOF
+}
+
+function eecho {
+    if [[ $GLOBAL_RANK -eq 0 ]]; then
+        >&2 echo -e "Error: $1"
+    fi
+
+    exit 1
+}
+
+case $LMOD_FAMILY_MPI in
+    cray-mpich)
+        export MPICH_GPU_SUPPORT_ENABLED=1
+        export MPICH_OFI_NIC_POLICY=GPU
+        export LOCAL_RANK=$PMI_LOCAL_RANK
+        export GLOBAL_RANK=$PMI_RANK
+        ;;
+    openmpi)
+        export LOCAL_RANK=$OMPI_COMM_WORLD_LOCAL_RANK
+        export GLOBAL_RANK=$OMPI_COMM_WORLD_RANK
+        ;;
+    *)
+        export GLOBAL_RANK=0
+        ;;
+esac
+
+if [[ -z $PBS_NODEFILE ]]; then
+    eecho "$my_name can only be used within a batch or interactive job"
+fi
+
+if [[ $NGPUS -eq 0 ]]; then
+    eecho "$my_name cannot find GPUs in compute environment"
+fi
+
+if [[ -n $LOCAL_RANK ]]; then
+    if [[ $GLOBAL_RANK -eq 0 ]]; then
+        if [[ $# -gt 0 ]]; then
+            num_nodes=$(uniq < $PBS_NODEFILE | wc -l)
+            echo "$my_name: using $LMOD_FAMILY_MPI MPI library with $NGPUS per node on $num_nodes hosts..."
+
+            if [[ $LMOD_FAMILY_MPI == cray-mpich ]]; then
+                echo "$my_name: setting MPICH_GPU_SUPPORT_ENABLED=1, MPICH_OFI_NIC_POLICY=GPU"
+            fi
+        else
+            >&2 echo -e "Error: $my_name must be used to run an application\n"
+            usage
+            exit 1
+        fi
+    fi
+
+    export CUDA_VISIBLE_DEVICES=$(expr $LOCAL_RANK % ${NGPUS:-4})
+    echo "$my_name: host $my_host / global rank ${GLOBAL_RANK} / local rank ${LOCAL_RANK} / CUDA_VISIBLE_DEVICES ${CUDA_VISIBLE_DEVICES}"
+else
+    export CUDA_VISIBLE_DEVICES=$(seq 0 $(expr ${NGPUS:-4} - 1) | paste -sd ',' -)
+    echo "$my_name: no recognized MPI library used ..."
+    echo "$my_name: host $my_host / CUDA_VISIBLE_DEVICES $CUDA_VISIBLE_DEVICES"
+fi
+
+exec $*
